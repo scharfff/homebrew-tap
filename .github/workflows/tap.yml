@@ -1,0 +1,64 @@
+name: Tap
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # Homebrew changes its audit rules from time to time: a weekly run shows it before a release does.
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tap-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  audit:
+    name: Style and audit
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Homebrew's own action: links this checkout into Homebrew as the tap scharfff/tap and
+      # trusts it (since Homebrew 6 third party taps must be trusted before brew loads them).
+      - name: Set up Homebrew
+        id: brew
+        uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # 2026.10.26.1
+      - name: brew style
+        env:
+          TAP: ${{ steps.brew.outputs.tap-name }}
+        run: brew style "$TAP"
+      # Offline checks: syntax, stanza order, required fields. They need no release.
+      - name: brew audit (offline)
+        env:
+          TAP: ${{ steps.brew.outputs.tap-name }}
+        run: brew audit --cask --strict "$TAP/tapkeys"
+      # Online checks download the zip and compare its sha256 with the cask, then the cask is
+      # installed and removed once. They need a published release: before the first release
+      # (placeholder sha256) the URL does not exist and this step is skipped with a notice.
+      - name: brew audit (online) and install test, when the release exists
+        env:
+          TAP: ${{ steps.brew.outputs.tap-name }}
+        run: |
+          version="$(sed -nE 's/^ *version "(.*)"/\1/p' Casks/tapkeys.rb)"
+          url="https://github.com/scharfff/tapkeys/releases/download/v${version}/TapKeys-v${version}.zip"
+          if ! curl -fsSLI -o /dev/null "$url"; then
+            echo "::notice::$url does not exist yet, online audit and install test skipped"
+            exit 0
+          fi
+          brew audit --cask --strict --online "$TAP/tapkeys"
+          brew install --cask "$TAP/tapkeys"
+          test -d /Applications/TapKeys.app
+          codesign --verify --deep --strict /Applications/TapKeys.app
+          brew uninstall --cask "$TAP/tapkeys"
+          test ! -e /Applications/TapKeys.app
