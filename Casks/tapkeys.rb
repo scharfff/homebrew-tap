@@ -1,6 +1,6 @@
 cask "tapkeys" do
   version "0.2.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "bf30168234c2ccb9a2458b10b24ecef75363f3e6bd8fdf118fcd84a19133c98e"
 
   url "https://github.com/scharfff/tapkeys/releases/download/v#{version}/TapKeys-v#{version}.zip"
   name "TapKeys"
