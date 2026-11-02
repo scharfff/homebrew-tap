@@ -33,7 +33,7 @@ jobs:
       # trusts it (since Homebrew 6 third party taps must be trusted before brew loads them).
       - name: Set up Homebrew
         id: brew
-        uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # 2026.10.26.1
+        uses: Homebrew/actions/setup-homebrew@c262868c096d909fc278daa87ed9772967331ea3 # 2026.11.02.1
       - name: brew style
         env:
           TAP: ${{ steps.brew.outputs.tap-name }}
